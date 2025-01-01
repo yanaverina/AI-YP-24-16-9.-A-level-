@@ -1,17 +1,17 @@
 from fastapi import FastAPI
 import uvicorn
 from pydantic import BaseModel, ConfigDict
-from api.v1.api_route import router
+from api.v1.api_route import router, lifespan
 
 app = FastAPI(
     title="A-level-server",
     docs_url="/api/openapi",
     openapi_url="/api/openapi.json",
+    lifespan=lifespan,
 )
 
 class StatusResponse(BaseModel):
     status: str
-
     model_config = ConfigDict(
         json_schema_extra={"examples": [{"status": "App healthy"}]}
     )
