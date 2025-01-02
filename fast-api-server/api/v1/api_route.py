@@ -10,13 +10,14 @@ from sklearn.metrics import roc_curve, precision_recall_curve
 from sklearn.preprocessing import label_binarize
 
 
-models = {}
+models = {} # dict of all models
 
 chosen_model = None
 chosen_model_id = None
-model_features = None
+model_features = None # columns for model
 
 router = APIRouter()
+
 
 class FitRequest(BaseModel):
     X: Dict[str, List[Union[int, float, str]]]
@@ -24,7 +25,6 @@ class FitRequest(BaseModel):
 
 
 class PredictRequest(BaseModel):
-    model_id: str
     X: Dict[str, List[Union[int, float, str]]]
 
 
@@ -38,6 +38,7 @@ async def lifespan(app: FastAPI):
     global models
     global chosen_model
     global model_features
+    global chosen_model_id
     try:
         with open('models/baseline.pkl', 'rb') as f:
             log_reg_dict = pickle.load(f)
@@ -45,6 +46,7 @@ async def lifespan(app: FastAPI):
         models['log_reg'] = log_reg_dict['model']
         model_features = log_reg_dict['columns']
         chosen_model = models['log_reg']
+        chosen_model_id = 'log_reg'
 
         with open('models/naive_bayes.pkl', 'rb') as f:
             naive_bayes_model = pickle.load(f)
@@ -55,7 +57,9 @@ async def lifespan(app: FastAPI):
         raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
 
 
-@router.post("/fit", response_model=ApiResponse, status_code=HTTPStatus.CREATED)
+@router.post("/fit",
+             response_model=ApiResponse,
+             status_code=HTTPStatus.CREATED)
 async def fit(request: FitRequest):
     global chosen_model_id
     global chosen_model
@@ -70,13 +74,17 @@ async def fit(request: FitRequest):
             raise HTTPException(status_code=HTTPStatus.BAD_REQUEST,
                                 detail="X_train and y_train cannot be empty.")
         if len(X) != len(y):
-            raise HTTPException(status_code=HTTPStatus.BAD_REQUEST,
-                                detail="X_train and y_train must have the same number of samples.")
+            raise HTTPException(
+                status_code=HTTPStatus.BAD_REQUEST,
+                detail='X_train and y_train must ' +
+                'have the same number of samples.'
+            )
 
         classes = np.unique(y)
 
         if chosen_model is None:
-            raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail='No model set')
+            raise HTTPException(
+                status_code=HTTPStatus.BAD_REQUEST, detail='No model set')
 
         chosen_model.fit(X, y)
         y_scores = chosen_model.decision_function(X)
@@ -85,7 +93,7 @@ async def fit(request: FitRequest):
         roc_curve_data = {}
         pr_curve_data = {}
 
-        for i, cls in enumerate(classes):
+        for i, cls in enumerate(classes): # return roc-curve and pr-curve
             fpr, tpr, roc_thresholds = roc_curve(y_bin[:, i], y_scores[:, i])
             roc_curve_data[str(cls)] = {
                 "fpr": fpr.tolist(),
@@ -93,7 +101,8 @@ async def fit(request: FitRequest):
                 "thresholds": roc_thresholds.tolist()
             }
 
-            precision, recall, pr_thresholds = precision_recall_curve(y_bin[:, i], y_scores[:, i])
+            precision, recall, pr_thresholds = precision_recall_curve(
+                y_bin[:, i], y_scores[:, i])
             pr_curve_data[str(cls)] = {
                 "precision": precision.tolist(),
                 "recall": recall.tolist(),
@@ -118,18 +127,20 @@ async def predict(request: PredictRequest):
         X = pd.DataFrame(request.X)
         X = X[model_features]
     except Exception:
-        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail='Data not provided')
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST,
+                            detail='Data not provided')
 
     if chosen_model is None:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="No model set")
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND,
+                            detail="No model set")
 
     model = models[chosen_model_id]
     y_pred = model.predict(X)
     y_pred_proba = model.predict_proba(X)
     return ApiResponse(message=f'prediction with model {chosen_model_id} done',
                        data={'model_id': chosen_model_id,
-                             'y_pred': y_pred,
-                             'y_pred_proba': y_pred_proba}
+                             'y_pred': y_pred.tolist(),
+                             'y_pred_proba': y_pred_proba.tolist()}
                        )
 
 
@@ -140,7 +151,8 @@ async def set_model(model_id: str):
     global chosen_model_id
 
     if model_id not in models:
-        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail='No such model exists')
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST,
+                            detail='No such model exists')
 
     chosen_model = models[model_id]
     chosen_model_id = model_id
