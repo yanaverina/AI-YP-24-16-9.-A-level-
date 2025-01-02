@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends, FastAPI
+from fastapi import APIRouter, HTTPException, FastAPI
 import pickle
-from typing import Union, Dict, List, Any
+from typing import Union, Dict, List, Any, Optional
 from http import HTTPStatus
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import roc_curve, precision_recall_curve
 from sklearn.preprocessing import label_binarize
+
 
 models = {}
 
@@ -17,17 +18,9 @@ model_features = None
 
 router = APIRouter()
 
-
-class ModelConfig(BaseModel):
-    hyperparameters: Dict[str, Any]
-    id: str
-    model_type: str
-
-
 class FitRequest(BaseModel):
     X: Dict[str, List[Union[int, float, str]]]
     y: List[int]
-    config: ModelConfig
 
 
 class PredictRequest(BaseModel):
@@ -60,7 +53,6 @@ async def lifespan(app: FastAPI):
         yield
     except Exception as e:
         raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
-
 
 
 @router.post("/fit", response_model=ApiResponse, status_code=HTTPStatus.CREATED)
@@ -145,6 +137,7 @@ async def predict(request: PredictRequest):
 async def set_model(model_id: str):
     global chosen_model
     global models
+    global chosen_model_id
 
     if model_id not in models:
         raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail='No such model exists')
