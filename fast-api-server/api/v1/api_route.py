@@ -57,11 +57,11 @@ async def lifespan(app: FastAPI):
         with open('models/baseline.pkl', 'rb') as f:
             log_reg_dict = pickle.load(f)
 
-        models['log_reg'] = log_reg_dict['model']
+        models['log_reg_baseline'] = log_reg_dict['model']
         model_features = log_reg_dict['columns']
-        chosen_model = models['log_reg']
-        chosen_model_id = 'log_reg'
-        model_params['log_reg'] = {
+        chosen_model = models['log_reg_baseline']
+        chosen_model_id = 'log_reg_baseline'
+        model_params['log_reg_baseline'] = {
             'C' : 103,
             'max_iter' : 10000,
             'multi_class' : 'ovr',
@@ -70,8 +70,8 @@ async def lifespan(app: FastAPI):
         with open('models/naive_bayes.pkl', 'rb') as f:
             naive_bayes_model = pickle.load(f)
 
-        models['naive_bayes'] = naive_bayes_model
-        model_params['naive_bayes'] = {
+        models['naive_bayes_baseline'] = naive_bayes_model
+        model_params['naive_bayes_baseline'] = {
             'alpha' : 1e-10
         }
 

@@ -20,7 +20,7 @@ from nltk.corpus import stopwords
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
-
+from typing import List, Dict, Any
 
 st.set_page_config(page_title='Классификация вопросов экзамена A-level по темам', layout="wide")
 
@@ -60,6 +60,16 @@ def plot_classes_hist(df: pd.DataFrame):
 
     st.plotly_chart(fig)
 
+def fit_request(X_train: pd.DataFrame, y_train, model_id: str, model_type: str, hyperparams=None):
+    url = 'http://fastapi-app:8000/api/v1/models/fit/'
+    X = X_train.to_dict(orient='list')
+    data = {
+        'X': X,
+        'y': y_train.tolist(),
+    }
+    response = requests.post(url, json=data)
+    st.write(response.json())
+
 
 def plot_wordcloud(df: pd.DataFrame, target_class: str):
     df_target = df[df['target']==target_class]
@@ -75,22 +85,6 @@ def plot_wordcloud(df: pd.DataFrame, target_class: str):
     ax.set_title(f'Облако слов - {target_class}', fontsize=16)
     st.pyplot(fig)
 
-def create_and_train_model(X_train, y_train, model_type, hyperparams=None):
-    if model_type == 'MultinomialNB':
-        clf = MultinomialNB(**hyperparams)
-    elif model_type == 'LogisticRegression':
-        clf = LogisticRegression(**hyperparams)
-    else:
-        st.error('Неправильный тип модели')
-        return None
-    
-    text_clf = Pipeline([
-        ('tfidf', TfidfVectorizer()),
-        ('clf', clf),
-    ])
-    
-    text_clf.fit(X_train, y_train)
-    return text_clf
 
 def view_model_info(model, y_test, X_test):
     if isinstance(model, Pipeline):
@@ -137,6 +131,7 @@ def main():
         return
     df = df[df['target'].isin(target_classes)]
     df['qst_processed'] = df['question'].apply(preprocess_text)
+    df['qst_len'] = df['qst_processed'].apply(len)
     
 
     tab_eda, tab_models = st.tabs(['EDA', 'Модели'])
@@ -153,39 +148,18 @@ def main():
         plot_wordcloud(df, target_class)
 
     with tab_models:
-        X = df['qst_processed']
+        X = df.copy()
         
         encoder = LabelEncoder()
         y = encoder.fit_transform(df['target'])
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
         
-        model_type = st.selectbox('Выбор модели', ['LogisticRegression', 'MultinomialNB'])
-        if model_type == 'LogisticRegression':
-            hyperparams = {'multi_class': 'ovr'}
-        else:
-            hyperparams = {}
-        
-        if st.button('Обучить модель'):
-            trained_model = create_and_train_model(X_train, y_train, model_type, hyperparams)
-            if trained_model:
-                st.success('Модель успешно обучена!')
-                dump(trained_model, f'{model_type}_model.joblib')
-                st.balloons()
-        
-        if st.button('Посмотреть информацию о модели'):
-            loaded_model = load(f'{model_type}_model.joblib')
-            view_model_info(loaded_model, y_test, X_test)
-        
-        if st.button('Сделать прогноз'):
-            question = st.text_input('Введите вопрос для классификации')
-            if question:
-                prediction, probabilities = infer_with_trained_model(loaded_model, [question])
-                st.write(prediction)
-                st.write(probabilities)
-                st.write(f'Предсказание: {prediction[0]}')
-                st.write('Вероятности классов:')
-                st.dataframe(pd.DataFrame(probabilities, columns=loaded_model.classes_))
+        model_type = st.selectbox('Выбор модели', ['naive_bayes', 'log_reg'])
+
+        fit_request(X_train, y_train, model_id='log_reg_new', model_type=model_type)
+
+
 
 if __name__ == "__main__":
     main()
