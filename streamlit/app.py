@@ -8,11 +8,7 @@ import requests
 import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
-from sklearn.linear_model import LinearRegression
-from sklearn.svm import SVC
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import classification_report, confusion_matrix
@@ -21,8 +17,6 @@ import datetime as dt
 import nltk
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
-import spacy
-import seaborn as sns
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
@@ -33,6 +27,8 @@ st.set_page_config(page_title='Классификация вопросов эк�
 nltk.download('punkt')
 nltk.download('stopwords')
 #nlp = spacy.load("en_core_web_sm")
+nltk.download('punkt_tab')
+nltk.download('wordnet')
 
 expected_columns = {'file', 'page', 'question', 'score', 'target'}
 
@@ -125,7 +121,7 @@ def infer_with_trained_model(model, X_infer):
 def main():
     st.title("Классификация вопросов экзамена A-level по темам")
     allowed_extensions = ['.csv']
-    data_file = st.file_uploader('Загрузите файл с историческими данными о погоде',
+    data_file = st.file_uploader('Загрузите Датасет',
                      type=allowed_extensions)
     
     if not data_file:
