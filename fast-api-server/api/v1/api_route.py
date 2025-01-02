@@ -1,13 +1,18 @@
 from fastapi import APIRouter, HTTPException, FastAPI
 import pickle
-from typing import Union, Dict, List, Any, Optional
+from typing import Union, Dict, List, Any, Literal, Optional
 from http import HTTPStatus
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
 import pandas as pd
 import numpy as np
 from sklearn.metrics import roc_curve, precision_recall_curve
+from sklearn.naive_bayes import MultinomialNB
 from sklearn.preprocessing import label_binarize
+from sklearn.linear_model import LogisticRegression
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
 
 
 models = {} # dict of all models
@@ -15,13 +20,17 @@ models = {} # dict of all models
 chosen_model = None
 chosen_model_id = None
 model_features = None # columns for model
+model_params = {}
 
 router = APIRouter()
 
 
 class FitRequest(BaseModel):
+    model_id: Union[str, None] = None
+    model_type: Literal['naive_bayes', 'log_reg'] = 'log_reg'
     X: Dict[str, List[Union[int, float, str]]]
     y: List[int]
+    hyperparams: Union[Dict[str, Any], None] = None
 
 
 class PredictRequest(BaseModel):
@@ -39,6 +48,7 @@ async def lifespan(app: FastAPI):
     global chosen_model
     global model_features
     global chosen_model_id
+    global model_params
     try:
         with open('models/baseline.pkl', 'rb') as f:
             log_reg_dict = pickle.load(f)
@@ -47,11 +57,20 @@ async def lifespan(app: FastAPI):
         model_features = log_reg_dict['columns']
         chosen_model = models['log_reg']
         chosen_model_id = 'log_reg'
+        model_params['log_reg'] = {
+            'C' : 103,
+            'max_iter' : 10000,
+            'multi_class' : 'ovr',
+        }
 
         with open('models/naive_bayes.pkl', 'rb') as f:
             naive_bayes_model = pickle.load(f)
 
         models['naive_bayes'] = naive_bayes_model
+        model_params['naive_bayes'] = {
+            'alpha' : 1e-10
+        }
+
         yield
     except Exception as e:
         raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
@@ -64,7 +83,7 @@ async def fit(request: FitRequest):
     global chosen_model_id
     global chosen_model
     global model_features
-
+    global model_params
     try:
         X = pd.DataFrame(request.X)
         X = X[model_features]
@@ -81,10 +100,43 @@ async def fit(request: FitRequest):
             )
 
         classes = np.unique(y)
+        model_id = request.model_id
+
+        if model_id is not None: # train new model and set it
+            if request.hyperparams is None:
+                raise HTTPException(status_code=HTTPStatus.BAD_REQUEST,
+                                    detail="must pass hyperperams to new model")
+            else:
+                hyperparams = request.hyperparams
+
+            if request.model_type =='log_reg':
+                new_model = LogisticRegression(**hyperparams)
+            elif request.model_type == 'naive_bayes':
+                new_model = MultinomialNB(**hyperparams)
+            else:
+                raise HTTPException(status_code=HTTPStatus.BAD_REQUEST,
+                                    detail='Model type is not supported')
+
+            pipeline = Pipeline([
+                ('tfidf', ColumnTransformer(
+                    transformers=[
+                        ('tfidf',
+                         TfidfVectorizer(stop_words='english'),
+                         'qst_processed')
+                    ],
+                    remainder='passthrough'
+                )),
+                ('model', new_model)
+            ])
+
+            models[model_id] = pipeline
+            chosen_model_id = model_id
+            chosen_model = models[model_id]
+            model_params[model_id] = hyperparams
 
         if chosen_model is None:
             raise HTTPException(
-                status_code=HTTPStatus.BAD_REQUEST, detail='No model set')
+                status_code=HTTPStatus.BAD_REQUEST, detail='No model_id provided')
 
         chosen_model.fit(X, y)
         y_scores = chosen_model.decision_function(X)
@@ -163,14 +215,8 @@ async def set_model(model_id: str):
 @router.get("/list_models", response_model=ApiResponse)
 async def list_models():
     try:
-        global models
-        models_params = {}
-        for model_id in models.keys():
-            params = models[model_id].get_params()
-            params = {key: str(value) for key, value in params.items()}
-            models_params[model_id] = params
-
+        global model_params
         return ApiResponse(message=f"Models list",
-                           data={'models_params': [models_params]})
+                           data=model_params)
     except Exception as e:
         raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
