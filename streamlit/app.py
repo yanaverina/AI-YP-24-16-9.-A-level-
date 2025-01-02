@@ -60,15 +60,19 @@ def plot_classes_hist(df: pd.DataFrame):
 
     st.plotly_chart(fig)
 
-def fit_request(X_train: pd.DataFrame, y_train, model_id: str, model_type: str, hyperparams=None):
+
+def fit_request(X_train: pd.DataFrame, y_train, model_id, model_type, hyperparams=None):
     url = 'http://fastapi-app:8000/api/v1/models/fit/'
     X = X_train.to_dict(orient='list')
     data = {
+        'model_id': model_id,
+        'model_type': model_type,
         'X': X,
         'y': y_train.tolist(),
     }
     response = requests.post(url, json=data)
-    st.write(response.json())
+    fit_data = response.json()
+
 
 
 def plot_wordcloud(df: pd.DataFrame, target_class: str):
@@ -85,24 +89,6 @@ def plot_wordcloud(df: pd.DataFrame, target_class: str):
     ax.set_title(f'Облако слов - {target_class}', fontsize=16)
     st.pyplot(fig)
 
-
-def view_model_info(model, y_test, X_test):
-    if isinstance(model, Pipeline):
-        st.write('Модель состоит из следующих шагов:')
-        for step_name, step in model.steps:
-            st.write(f'- {step_name}: {type(step).__name__}')
-            
-            if hasattr(step, 'get_params'):
-                params = step.get_params()
-                st.json(params)
-                
-    st.write('Метрики классификации:')
-    test_pred = model.predict(X_test)
-    report = classification_report(y_test, test_pred)
-    cm = confusion_matrix(y_test, test_pred)
-    st.write(report)
-    st.write('Матрица путаницы:')
-    st.dataframe(pd.DataFrame(cm))
 
 def infer_with_trained_model(model, X_infer):
     predictions = model.predict(X_infer)
@@ -134,7 +120,10 @@ def main():
     df['qst_len'] = df['qst_processed'].apply(len)
     
 
-    tab_eda, tab_models = st.tabs(['EDA', 'Модели'])
+    tab_eda, tab_fit, tab_pred, tab_list = st.tabs(['EDA',
+                                                    'Обучить модель',
+                                                    'Предсказание на test',
+                                                    'Список моделей'])
     
     with tab_eda:
         plot_classes_hist(df)
@@ -147,7 +136,7 @@ def main():
 
         plot_wordcloud(df, target_class)
 
-    with tab_models:
+    with tab_fit:
         X = df.copy()
         
         encoder = LabelEncoder()
