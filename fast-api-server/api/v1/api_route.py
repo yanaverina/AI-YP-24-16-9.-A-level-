@@ -41,6 +41,10 @@ class ApiResponse(BaseModel):
     message: str
     data: Union[Dict, None] = None
 
+class PredictResponse(BaseModel):
+    y_pred: List[float]
+    y_pred_proba: List[float]
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -145,8 +149,8 @@ async def fit(request: FitRequest):
         roc_curve_data = {}
         pr_curve_data = {}
 
-        for i, cls in enumerate(classes): # return roc-curve and pr-curve
-            fpr, tpr, roc_thresholds = roc_curve(y_bin[:, i], y_scores[:, i])
+        for cls in classes: # return roc-curve and pr-curve
+            fpr, tpr, roc_thresholds = roc_curve(y_bin[:, cls], y_scores[:, cls])
             roc_curve_data[str(cls)] = {
                 "fpr": fpr.tolist(),
                 "tpr": tpr.tolist(),
@@ -154,7 +158,7 @@ async def fit(request: FitRequest):
             }
 
             precision, recall, pr_thresholds = precision_recall_curve(
-                y_bin[:, i], y_scores[:, i])
+                y_bin[:, cls], y_scores[:, cls])
             pr_curve_data[str(cls)] = {
                 "precision": precision.tolist(),
                 "recall": recall.tolist(),
