@@ -26,7 +26,6 @@ st.set_page_config(page_title='Классификация вопросов эк�
 
 nltk.download('punkt')
 nltk.download('stopwords')
-#nlp = spacy.load("en_core_web_sm")
 nltk.download('punkt_tab')
 nltk.download('wordnet')
 
@@ -61,7 +60,8 @@ def plot_classes_hist(df: pd.DataFrame):
     st.plotly_chart(fig)
 
 
-def fit_request(X_train: pd.DataFrame, y_train, model_id, model_type, hyperparams=None):
+def fit_request(X_train: pd.DataFrame, y_train, model_id, model_type, hyperparams):
+    #url = 'http://localhost:8000/models/fit/'
     url = 'http://fastapi-app:8000/api/v1/models/fit/'
     X = X_train.to_dict(orient='list')
     data = {
@@ -69,9 +69,60 @@ def fit_request(X_train: pd.DataFrame, y_train, model_id, model_type, hyperparam
         'model_type': model_type,
         'X': X,
         'y': y_train.tolist(),
+        'hyperparams': hyperparams
     }
     response = requests.post(url, json=data)
     fit_data = response.json()
+
+    for i in range(len(target_classes)):
+        st.write(f'<p style="font-size: 20px;"><strong>Curves for "{target_classes[i]}" class</strong></p>', unsafe_allow_html=True)
+        col1, col2 = st.columns(2)
+
+        with col1:
+            df = pd.DataFrame({
+                'fpr': fit_data['data']['roc_curve'][str(i)]['fpr'],
+                'tpr': fit_data['data']['roc_curve'][str(i)]['tpr']
+            })
+            fig = px.line(df, x="fpr", y="tpr", title=f"ROC Curve", template="plotly_white", width=600, height=600)
+            st.plotly_chart(fig)
+
+        with col2:
+            df2 = pd.DataFrame({
+                'recall': fit_data['data']['pr_curve'][str(i)]['recall'],
+                'precision': fit_data['data']['pr_curve'][str(i)]['precision']
+            })
+            fig2 = px.line(df2, x="recall", y="precision", title=f"Precision Recall Curve", template="plotly_white", width=600, height=600)
+            st.plotly_chart(fig2)
+
+def set_models(model_id):
+    #url = f'http://localhost:8000/models/set_model?model_id={model_id}'
+    url = f'http://fastapi-app:8000/api/v1/models/set_model?model_id={model_id}'
+    response = requests.post(url, json=model_id)
+    result = response.json()
+    st.write(result['message'])
+
+def prediction(X_test: pd.DataFrame):
+    #url = 'http://localhost:8000/models/predict/'
+    url = 'http://fastapi-app:8000/api/v1/models/predict/'
+    X_test_dict = X_test.to_dict(orient='list')
+    data = {'X':X_test_dict}
+    response = requests.post(url, json=data)
+    fit_data = response.json()
+    
+    df = pd.DataFrame({
+                'question': X_test_dict['question'],
+                'prediction class': fit_data['data']['y_pred'],
+            })
+
+    return df
+
+def models_list():
+    #url = 'http://localhost:8000/models/list_models/'
+    url = 'http://fastapi-app:8000/api/v1/models/list_models/'
+    response = requests.get(url)
+    result = response.json()
+    st.write(result['message'])
+    st.write(result['data'])
 
 
 
@@ -88,15 +139,6 @@ def plot_wordcloud(df: pd.DataFrame, target_class: str):
     ax.axis('off')
     ax.set_title(f'Облако слов - {target_class}', fontsize=16)
     st.pyplot(fig)
-
-
-def infer_with_trained_model(model, X_infer):
-    predictions = model.predict(X_infer)
-    st.write(predictions)
-    probabilities = model.predict_proba(X_infer)
-    st.write(probabilities)
-    return predictions, probabilities
-
 
 def main():
     st.title("Классификация вопросов экзамена A-level по темам")
@@ -144,11 +186,47 @@ def main():
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
         
-        model_type = st.selectbox('Выбор модели', ['naive_bayes', 'log_reg'])
+        model_type = st.selectbox('Выбор модели', ['log_reg'], key='model_type')
+        if model_type is not None:
+            if model_type == 'log_reg':
+                hyperparams_C = st.selectbox('Выбор коэффициента C', [1, 10, 100], key='hyperparams_C')
+                hyperparams_max_iter = st.selectbox('Выбор количества итераций', [100, 1000, 10000], key='hyperparams_max_iter')
+                st.write('Обязательный выбор мультиклассовой классификации :)')
+                hyperparams = {'C': hyperparams_C, 'max_iter': hyperparams_max_iter, 'multi_class' : 'ovr'}
+                fit_request(X_train, y_train, model_id='log_reg_new', model_type=model_type, hyperparams=hyperparams)
+    
+    with tab_list:
+        models_list()
 
-        fit_request(X_train, y_train, model_id='log_reg_new', model_type=model_type)
+    with tab_pred:
+        model_type = st.selectbox('Выбор модели', ['log_reg', 'naive_bayes'])
+        if model_type == 'log_reg':
+            set_models('log_reg_baseline')
+        else:
+            set_models('naive_bayes_baseline')
+
+        if model_type is not None:
+            X_testing = st.file_uploader('Загрузите Датасет для определения его тематики',
+                     type=allowed_extensions)
+
+            if not X_testing:
+                st.warning('Пожалуйста, загрузите датасет')
+                return
+        
+            df_test = pd.read_csv(X_testing)
+            df_test = df_test[df_test['target'].isin(target_classes)]
+            df_test['qst_processed'] = df_test['question'].apply(preprocess_text)
+            df_test['qst_len'] = df_test['qst_processed'].apply(len)
+            df_result = prediction(df_test)
+
+            y_thema = encoder.inverse_transform(df_result['prediction class'])
+            df_result['predicted_thema'] = y_thema
+            st.dataframe(df_result)
+
+
 
 
 
 if __name__ == "__main__":
     main()
+
