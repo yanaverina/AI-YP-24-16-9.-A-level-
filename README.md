@@ -12,9 +12,13 @@
 
 Чекпоинт 3: https://github.com/yanaverina/AI-YP-24-16-9.-A-level-/tree/mvp/checkpoint_3
 
-Команда:
+* Команда:
+  
 Куратор - Ковалева Александра, @ak0va
+
 Участники: 
+
 Верина Яна Владимировна, @verina_yana
+
 Давыденко Георгий Андреевич @dukedaW
 
