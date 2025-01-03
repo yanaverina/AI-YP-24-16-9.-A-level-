@@ -8,6 +8,7 @@
 
 * Ссылки на предыдущие чекпоинты:
 Чекпоинт 2: https://github.com/yanaverina/AI-YP-24-16-9.-A-level-/tree/mvp/checkpoint_2
+
 Чекпоинт 3: https://github.com/yanaverina/AI-YP-24-16-9.-A-level-/tree/mvp/checkpoint_3
 
 Команда:
