@@ -48,7 +48,7 @@
   ![Screenshot from 2025-01-03 22-25-58](https://github.com/user-attachments/assets/30aff2c0-d609-42fd-80d4-936cd76a1ab9)
 
   Облака слов можно строить по любой из тематик вопросов экзамена.
-  ![Screenshot from 2025-01-03 22-25-58](https://github.com/user-attachments/assets/6e3df306-733a-4fc0-a1b0-55710e81c838)
+  ![Screenshot from 2025-01-03 22-26-59](https://github.com/user-attachments/assets/6e75de5b-ddae-47fe-a078-9b5e9ca6717c)
 
   * Обучить модель
     Представлена возможность обучить модель линейной регрессии с любыми параметрами из предложенных в выпадающем списке. 
