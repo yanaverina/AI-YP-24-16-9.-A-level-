@@ -52,7 +52,8 @@
 
   * Обучить модель
     Представлена возможность обучить модель линейной регрессии с любыми параметрами из предложенных в выпадающем списке.
-    ![Screenshot from 2025-01-03 22-39-46](https://github.com/user-attachments/assets/90239221-616a-423a-8eea-1476225a7536)
+    ![Screenshot from 2025-01-03 22-42-24](https://github.com/user-attachments/assets/16069ebf-56d1-45ad-a1ab-bfecbafae7f8)
+
 
     Интерактивные графики кривых обучения - ROC AUC и Precision-Recall строятся автоматически в зависимости от выбранных параметров моделей.
     ![Screenshot from 2025-01-03 22-40-02](https://github.com/user-attachments/assets/9a63a20d-db3a-4502-bd23-331aa22ae1bf)
