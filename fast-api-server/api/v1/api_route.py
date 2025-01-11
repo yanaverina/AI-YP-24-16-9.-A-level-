@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, FastAPI
 import pickle
-from typing import Union, Dict, List, Any, Literal, Optional
+from typing import Union, Dict, List, Any, Literal
 from http import HTTPStatus
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
@@ -14,18 +14,25 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 
-
-models = {} # dict of all models
+models = {}  # dict of all models
 
 chosen_model = None
 chosen_model_id = None
-model_features = None # columns for model
+model_features = None  # columns for model
 model_params = {}
 
 router = APIRouter()
 
 
 class FitRequest(BaseModel):
+    """
+    Request to train model
+    - model_id - id of a new model to train
+    - model_type (currently log_reg only)
+    - X - training data
+    - y - training labels
+    - hyperparams - hyperparams for new model
+    """
     model_id: Union[str, None] = None
     model_type: Literal['naive_bayes', 'log_reg'] = 'log_reg'
     X: Dict[str, List[Union[int, float, str]]]
@@ -34,20 +41,25 @@ class FitRequest(BaseModel):
 
 
 class PredictRequest(BaseModel):
+    """
+    Request to get prediction by currently set model
+    - X - test data
+    """
     X: Dict[str, List[Union[int, float, str]]]
 
 
 class ApiResponse(BaseModel):
+    """
+    Unified API-responce for all endpoints
+    - message - some kind of message
+    - data - return value of endpoint
+    """
     message: str
     data: Union[Dict, None] = None
 
-class PredictResponse(BaseModel):
-    y_pred: List[float]
-    y_pred_proba: List[float]
-
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_: FastAPI):
     global models
     global chosen_model
     global model_features
@@ -62,9 +74,9 @@ async def lifespan(app: FastAPI):
         chosen_model = models['log_reg_baseline']
         chosen_model_id = 'log_reg_baseline'
         model_params['log_reg_baseline'] = {
-            'C' : 103,
-            'max_iter' : 10000,
-            'multi_class' : 'ovr',
+            'C': 103,
+            'max_iter': 10000,
+            'multi_class': 'ovr',
         }
 
         with open('models/naive_bayes.pkl', 'rb') as f:
@@ -72,7 +84,7 @@ async def lifespan(app: FastAPI):
 
         models['naive_bayes_baseline'] = naive_bayes_model
         model_params['naive_bayes_baseline'] = {
-            'alpha' : 1e-10
+            'alpha': 1e-10
         }
 
         yield
@@ -84,6 +96,11 @@ async def lifespan(app: FastAPI):
              response_model=ApiResponse,
              status_code=HTTPStatus.CREATED)
 async def fit(request: FitRequest):
+    """
+    Training model endpoint
+    :param request: training data with all necessary params
+    :return: roc/pr-curves
+    """
     global chosen_model_id
     global chosen_model
     global model_features
@@ -100,20 +117,20 @@ async def fit(request: FitRequest):
             raise HTTPException(
                 status_code=HTTPStatus.BAD_REQUEST,
                 detail='X_train and y_train must ' +
-                'have the same number of samples.'
+                       'have the same number of samples.'
             )
 
         classes = np.unique(y)
         model_id = request.model_id
 
-        if model_id is not None: # train new model and set it
+        if model_id is not None:  # train new model and set it
             if request.hyperparams is None:
                 raise HTTPException(status_code=HTTPStatus.BAD_REQUEST,
                                     detail="must pass hyperperams to new model")
             else:
                 hyperparams = request.hyperparams
 
-            if request.model_type =='log_reg':
+            if request.model_type == 'log_reg':
                 new_model = LogisticRegression(**hyperparams)
             elif request.model_type == 'naive_bayes':
                 new_model = MultinomialNB(**hyperparams)
@@ -149,7 +166,7 @@ async def fit(request: FitRequest):
         roc_curve_data = {}
         pr_curve_data = {}
 
-        for cls in classes: # return roc-curve and pr-curve
+        for cls in classes:  # return roc-curve and pr-curve
             fpr, tpr, roc_thresholds = roc_curve(y_bin[:, cls], y_scores[:, cls])
             roc_curve_data[str(cls)] = {
                 "fpr": fpr.tolist(),
@@ -177,6 +194,11 @@ async def fit(request: FitRequest):
 
 @router.post("/predict", response_model=ApiResponse)
 async def predict(request: PredictRequest):
+    """
+    Get prediction for currently set model
+    :param request: data for prediction
+    :return: predictions, probabilities
+    """
     global chosen_model_id
 
     try:
@@ -202,6 +224,11 @@ async def predict(request: PredictRequest):
 
 @router.post("/set_model", response_model=ApiResponse)
 async def set_model(model_id: str):
+    """
+    Set model for prediction
+    :param model_id: id of existing model
+    :return:
+    """
     global chosen_model
     global models
     global chosen_model_id
@@ -218,6 +245,10 @@ async def set_model(model_id: str):
 
 @router.get("/list_models", response_model=ApiResponse)
 async def list_models():
+    """
+    Get list of all models currently on server
+    :return: list of models with parameters
+    """
     try:
         global model_params
         return ApiResponse(message=f"Models list",

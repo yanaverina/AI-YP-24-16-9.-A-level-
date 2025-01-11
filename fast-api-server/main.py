@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 import uvicorn
 from pydantic import BaseModel, ConfigDict
 from api.v1.api_route import router, lifespan
+
 
 app = FastAPI(
     title="A-level-server",
@@ -12,6 +13,10 @@ app = FastAPI(
 
 
 class StatusResponse(BaseModel):
+    """
+    Response for root endpoint (status of app)
+    """
+
     status: str
     model_config = ConfigDict(
         json_schema_extra={"examples": [{"status": "App healthy"}]}
@@ -20,6 +25,9 @@ class StatusResponse(BaseModel):
 
 @app.get("/")
 async def root():
+    """
+    Root endpoint (check if app is alive)
+    """
     return StatusResponse(status="App healthy")
 
 
