@@ -1,0 +1,4 @@
+catboost_info/
+.idea/
+.venv/
+bert_classifier/bert_classifier.pth
