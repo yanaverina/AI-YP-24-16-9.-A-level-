@@ -1,0 +1,9 @@
+streamlit
+pandas
+seaborn
+scikit-learn
+requests
+matplotlib
+plotly
+joblib
+wordcloud
