@@ -5,7 +5,7 @@
 |----------------------------------|---------|------------------|-----------------------------------------------------|
 | LogReg                           | 0.95    | 0.74             | C=10, penalty='l2'                                  |
 | LogReg                           | 0.95    | 0.86             | C=10³, penalty='l2'                                 |
-| BERT (дообучение)                | 0.97    | 0.79             | lr=2e-5, scheduler=linearwithwarmup, num_epochs=20|
+| BERT (дообучение)                | 0.97    | 0.79             | lr=2e-5, scheduler=linearwithwarmup, num_epochs=20, 1 дополнительный линейный слой + Dropout(p=0.2)|
 | BERT tokenizer + LogReg          | 0.90    | 0.56             | pretrained tokenizer, log reg params: C=10, penalty='l2'|
 | Naive Bayes                      | 0.91    | 0.46             | ngram_range=(1,2), alpha=10e−10                    |
 | Linear SVC                       | 0.92    | 0.63             | C=100, gamma=0.01, kernel='rbf'                    |
